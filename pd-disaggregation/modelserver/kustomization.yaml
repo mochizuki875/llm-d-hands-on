@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: llm-d-pd-disaggregation
+
+resources:
+  - prefill-deployment.yaml
+  - prefill-service.yaml
+  - decode-deployment.yaml
+  - decode-service.yaml
+
+labels:
+  - pairs:
+      llm-d.ai/guide: pd-disaggregation-sim
+    includeSelectors: true
+    includeTemplates: true

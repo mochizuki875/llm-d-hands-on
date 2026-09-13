@@ -1,0 +1,16 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: llm-d-epp-podmonitor
+spec:
+  namespaceSelector:
+    any: true
+  selector:
+    matchExpressions:
+      - key: llm-d.ai/igw-mode
+        operator: Exists
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 5s
+      scheme: http

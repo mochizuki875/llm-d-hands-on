@@ -1,0 +1,20 @@
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: llm-d-inference-gateway-tracing
+  namespace: llm-d-pd-disaggregation
+spec:
+  mergeType: StrategicMerge
+  telemetry:
+    tracing:
+      samplingRate: 100
+      provider:
+        type: OpenTelemetry
+        serviceName: llm-d-inference-gateway
+        backendRefs:
+          - name: monitoring-otel-collector
+            namespace: llm-d-monitoring
+            port: 4317
+        openTelemetry:
+          sampler:
+            type: ParentBasedAlwaysOn

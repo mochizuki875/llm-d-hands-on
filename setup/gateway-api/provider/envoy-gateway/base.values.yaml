@@ -1,0 +1,40 @@
+config:
+  envoyGateway:
+    gateway:
+      controllerName: gateway.envoyproxy.io/gatewayclass-controller
+    logging:
+      level:
+        default: info
+    provider:
+      type: Kubernetes
+    extensionApis:
+      # AI Gateway が xDS を調整するための拡張 API を有効化
+      enableEnvoyPatchPolicy: true
+      # AI backend を表す Backend API を有効化
+      enableBackend: true
+    extensionManager:
+      # InferencePool custom resource を backend として扱う
+      backendResources:
+        - group: inference.networking.k8s.io
+          kind: InferencePool
+          version: v1
+      hooks:
+        xdsTranslator:
+          translation:
+            listener:
+              includeAll: true
+            route:
+              includeAll: true
+            cluster:
+              includeAll: true
+            secret:
+              includeAll: true
+          post:
+            - Translation
+            - Cluster
+            - Route
+      service:
+        fqdn:
+          # Envoy AI Gateway controller の Service FQDN
+          hostname: ai-gateway-controller.envoy-ai-gateway-system.svc.cluster.local
+          port: 1063

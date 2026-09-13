@@ -1,0 +1,67 @@
+fullnameOverride: monitoring-prometheus
+
+grafana:
+  adminUser: admin
+  adminPassword: admin
+  sidecar:
+    dashboards:
+      enabled: true
+      searchNamespace: llm-d-monitoring
+      label: grafana_dashboard
+      folderAnnotation: grafana_folder
+  persistence:
+    enabled: false
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  additionalDataSources:
+    - name: Tempo
+      uid: tempo
+      type: tempo
+      access: proxy
+      url: http://monitoring-tempo.llm-d-monitoring.svc.cluster.local:3200
+      editable: true
+      jsonData:
+        httpMethod: GET
+        serviceMap:
+          datasourceUid: prometheus
+        tracesToMetrics:
+          datasourceUid: prometheus
+          spanStartTimeShift: -5m
+          spanEndTimeShift: 5m
+          tags:
+            - key: service.name
+              value: service
+        nodeGraph:
+          enabled: true
+        search:
+          hide: false
+        traceQuery:
+          timeShiftEnabled: true
+          spanStartTimeShift: -5m
+          spanEndTimeShift: 5m
+
+alertmanager:
+  enabled: false
+
+kubeEtcd:
+  enabled: false
+
+kubeControllerManager:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
+
+prometheus:
+  prometheusSpec:
+    scrapeInterval: 10s
+    enableRemoteWriteReceiver: true
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorNamespaceSelector: {}
+    podMonitorNamespaceSelector: {}

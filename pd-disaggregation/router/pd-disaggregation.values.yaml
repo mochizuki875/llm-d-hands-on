@@ -1,0 +1,101 @@
+# Gateway provider selection.
+# This guide assumes the Gateway is already installed.
+provider:
+  name: none
+
+httpRoute:
+  create: true
+  inferenceGatewayName: llm-d-inference-gateway
+  requestTimeout: "0s"
+
+router:
+  extraServicePorts:
+    # ローカルの port-forward 確認用に Router Service に HTTP port を追加する
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 8081
+
+  monitoring:
+    prometheus:
+      auth:
+        enabled: false
+
+  epp:
+    replicas: 1
+    flags:
+      v: 2
+    pluginsConfigFile: pd-config.yaml
+    pluginsCustomConfig:
+      pd-config.yaml: |
+        apiVersion: llm-d.ai/v1alpha1
+        kind: EndpointPickerConfig
+        plugins:
+        # - type: always-disagg-pd-decider  # すべてのrequestでP/Dを実行する比較用の固定判定
+        - type: prefix-based-pd-decider
+          parameters:
+            # 未キャッシュtoken数がこの値以上ならprefill + decodeを選択する
+            # 短い検証requestでも初回をP/D、同一requestの再送をdecode-onlyにする
+            nonCachedTokens: 16
+        - type: disagg-profile-handler
+          parameters:
+            deciders:
+              # prefill: always-disagg-pd-decider
+              prefill: prefix-based-pd-decider # prefillを実行するか判定するdecider
+        - type: prefill-filter
+        - type: decode-filter
+        - type: approx-prefix-cache-producer
+          parameters:
+            # 5k-ISL gpt-oss-120b reference workload; a modest match window
+            # keeps EPP prefix-matching cheap.
+            maxPrefixTokensToMatch: 131072
+        - type: inflight-load-producer
+        - type: prefix-cache-affinity-filter
+          parameters:
+            # Measured with guides/recipes/router/calibration/calibrate.sh
+            # through the full P/D path on the reference fleet (gpt-oss-120b,
+            # 8x prefill TP=1 on H200, chunk 8192). Includes the NIXL KV
+            # transfer + sidecar hop, so it is the operational ceiling the
+            # gate acts on. Re-measure for other hardware/models.
+            peakPrefillThroughput: 33821
+        - type: token-load-scorer
+        - type: active-request-scorer
+        - type: max-score-picker
+        schedulingProfiles:
+        # Prefill does the prompt pass: keep prefix groups on cache-warm pods
+        # (affinity filter) and pick by queued prefill token load.
+        - name: prefill
+          plugins:
+          - pluginRef: prefill-filter
+          - pluginRef: prefix-cache-affinity-filter
+          - pluginRef: token-load-scorer
+          - pluginRef: max-score-picker
+        # Pure decode is bound by concurrent in-flight requests, not prefill
+        # throughput: pick the least-busy endpoint.
+        - name: decode
+          plugins:
+          - pluginRef: decode-filter
+          - pluginRef: active-request-scorer
+          - pluginRef: max-score-picker
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: "2"
+        memory: 2Gi
+
+  inferencePool:
+    failureMode: FailOpen
+
+  modelServers:
+    protocol: http
+    matchLabels:
+      llm-d.ai/guide: pd-disaggregation-sim
+
+  tracing:
+    enabled: true
+    otelExporterEndpoint: http://monitoring-otel-collector.llm-d-monitoring.svc.cluster.local:4317
+    sampling:
+      sampler: parentbased_traceidratio
+      samplerArg: "1.0"

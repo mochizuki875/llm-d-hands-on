@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: monitoring-otel-collector-config
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+    processors:
+      filter/drop-metrics-scraping:
+        error_mode: ignore
+        traces:
+          span:
+            - 'attributes["url.path"] == "/metrics"'
+            - 'attributes["http.route"] == "/metrics"'
+            - name == "GET /metrics"
+            - name == "GET"
+      batch:
+        send_batch_size: 1024
+        timeout: 1s
+    exporters:
+      otlp/tempo:
+        endpoint: monitoring-tempo.llm-d-monitoring.svc.cluster.local:4317
+        tls:
+          insecure: true
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+    service:
+      extensions: [health_check]
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [filter/drop-metrics-scraping, batch]
+          exporters: [otlp/tempo]

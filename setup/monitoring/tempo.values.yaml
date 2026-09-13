@@ -1,0 +1,32 @@
+fullnameOverride: monitoring-tempo
+
+tempo:
+  reportingEnabled: false
+  retention: 24h
+  metricsGenerator:
+    enabled: true
+    remoteWriteUrl: http://monitoring-prometheus-prometheus.llm-d-monitoring.svc.cluster.local:9090/api/v1/write
+    processor:
+      service_graphs: {}
+  overrides:
+    defaults:
+      metrics_generator:
+        processors:
+          - service-graphs
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+tempoQuery:
+  enabled: false
+
+serviceMonitor:
+  enabled: true
+  interval: 15s
+
+persistence:
+  enabled: false

@@ -1,0 +1,19 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: llm-d-inference-gateway
+  namespace: llm-d-pd-disaggregation
+spec:
+  gatewayClassName: envoy-ai-gateway
+  infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      name: llm-d-inference-gateway-tracing
+  listeners:
+    - port: 80
+      protocol: HTTP
+      name: default
+      allowedRoutes:
+        namespaces:
+          from: All

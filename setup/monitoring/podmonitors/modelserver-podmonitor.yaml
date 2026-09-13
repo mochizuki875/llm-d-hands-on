@@ -1,0 +1,16 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: llm-d-modelserver-podmonitor
+spec:
+  namespaceSelector:
+    any: true
+  selector:
+    matchExpressions:
+      - key: llm-d.ai/role
+        operator: Exists
+  podMetricsEndpoints:
+    - port: modelserver
+      path: /metrics
+      interval: 5s
+      scheme: http
